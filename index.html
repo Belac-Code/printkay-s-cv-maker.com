@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Printkay's Tech CV Maker — Build a Professional CV in Minutes</title>
+<meta name="description" content="Create a professional CV in minutes. Choose Basic, Average or Advanced, fill a guided form, preview live, and download a polished PDF.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/html-docx-js/dist/html-docx.js"></script>
+</head>
+<body>
+
+<!-- ============================================================
+     PAGE LOADER — brief "Printkay's CV Maker" branded splash shown
+     while the app boots. See CSS "PAGE LOADER" block and the JS
+     "SECTION: PAGE LOADER" near the bottom for how it's timed and
+     dismissed. Pure presentational chrome — holds no app state.
+     ============================================================ -->
+<div id="page-loader" aria-hidden="true">
+  <div class="page-loader-inner">
+    <div class="page-loader-mark">PK</div>
+    <div class="page-loader-title">Printkay's <span>CV Maker</span></div>
+    <div class="page-loader-sub">by Printkay's Digital Enterprise</div>
+    <div class="page-loader-bar"><div class="page-loader-bar-fill"></div></div>
+  </div>
+</div>
+
+<div id="toast-root" aria-live="polite"></div>
+
+<!-- ============================================================
+     WHATSAPP HELP FAB — floating on every screen (landing + builder).
+     href is set/updated by JS (see "SECTION: WHATSAPP HELP BUTTON")
+     so the prefilled message names the CV level the person is
+     currently working on (Basic / Average / Advanced), or a
+     generic message on the landing page before a level is chosen.
+     ============================================================ -->
+<a href="https://wa.me/2349079809163" id="whatsapp-help-btn" class="whatsapp-fab" target="_blank" rel="noopener"
+   aria-label="Chat with us on WhatsApp for help filling up your CV" title="Need help? Chat with us on WhatsApp">
+  <span class="whatsapp-fab-ring"></span>
+  <i class="fa-brands fa-whatsapp"></i>
+</a>
+
+<div id="pdf-loading">
+  <div class="pdf-loading-box">
+    <div class="pdf-loading-mark">PK</div>
+    <div class="pdf-loading-brand">Printkay's Tech</div>
+    <p id="pdf-loading-text">Preparing your CV<span class="pdf-loading-dots" id="pdf-loading-dots">.</span></p>
+    <div class="pdf-loading-bar"><div class="pdf-loading-bar-fill" id="pdf-loading-bar-fill"></div></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="confirm-modal">
+  <div class="modal-box">
+    <h3 id="confirm-title">Are you sure?</h3>
+    <p id="confirm-msg">This action cannot be undone.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" id="confirm-cancel">Cancel</button>
+      <button class="btn btn-danger" style="background:var(--error);color:#fff;" id="confirm-ok">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     LANDING PAGE
+     ============================================================ -->
+<div id="landing-root">
+  <header class="site-header">
+    <div class="container">
+      <a href="#top" class="brand">
+        <span class="brand-mark">PK</span>
+        <span>Printkay's Tech<small>CV Maker · by Printkay's Digital Enterprise</small></span>
+      </a>
+      <nav class="main-nav" id="main-nav" aria-label="Primary">
+        <a href="#top">Home</a>
+        <a href="#features">Features</a>
+        <a href="#how">How It Works</a>
+        <a href="#levels">About</a>
+        <a href="#contact">Contact</a>
+      </nav>
+      <div class="header-actions">
+        <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark / light mode">
+          <i class="fa-solid fa-moon" id="theme-icon"></i>
+        </button>
+        <button class="btn btn-primary" id="hero-cta-top" onclick="scrollToLevels()">
+          <i class="fa-solid fa-file-pen"></i> Create My CV
+        </button>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="main-nav">
+          <i class="fa-solid fa-bars" id="nav-toggle-icon"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+  <!-- Dimmed backdrop behind the mobile nav drawer — tapping it, tapping
+       outside the drawer, or pressing Escape all close it (see JS
+       "SECTION: MOBILE NAV DRAWER"). -->
+  <div id="nav-backdrop"></div>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero-copy">
+          <span class="eyebrow"><i class="fa-solid fa-sparkles"></i> Free · No sign-up required</span>
+          <h1>Build a <span class="accent">professional CV</span> with Printkay's Tech</h1>
+          <p class="lead">Choose your preferred CV level, enter your information, customize your design, and download your CV as a professional PDF — right from your phone or laptop.</p>
+          <div class="hero-cta">
+            <button class="btn btn-primary" onclick="scrollToLevels()"><i class="fa-solid fa-file-pen"></i> Create My CV</button>
+            <a href="#how" class="btn btn-outline"><i class="fa-solid fa-circle-play"></i> How It Works</a>
+          </div>
+          <div class="hero-trust">
+            <div class="stat"><b>3</b><span>CV levels to choose from</span></div>
+            <div class="stat"><b>100%</b><span>Data stays on your device</span></div>
+            <div class="stat"><b>&lt;5 min</b><span>To a downloadable PDF</span></div>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="mock-cv">
+            <div class="mock-badge"><i class="fa-solid fa-file-arrow-down"></i> PDF ready</div>
+            <div class="mock-badge2"><i class="fa-solid fa-check"></i> Auto-saved</div>
+            <div class="mock-cv-head">
+              <div class="mock-avatar"></div>
+              <div style="flex:1;">
+                <div class="mock-line name"><div class="mock-fill"></div></div>
+                <div class="mock-line title"><div class="mock-fill"></div></div>
+              </div>
+            </div>
+            <div class="mock-section"><span class="mock-tag">Experience</span>
+              <div class="mock-line"><div class="mock-fill" style="animation-delay:1s"></div></div>
+              <div class="mock-line"><div class="mock-fill" style="animation-delay:1.3s"></div></div>
+              <div class="mock-line"><div class="mock-fill" style="animation-delay:1.6s"></div></div>
+            </div>
+            <div class="mock-section"><span class="mock-tag">Education</span>
+              <div class="mock-line"><div class="mock-fill" style="animation-delay:2s"></div></div>
+              <div class="mock-line"><div class="mock-fill" style="animation-delay:2.3s"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="section" id="features">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow">What you get</span>
+          <h2>Everything you need to ship a CV today</h2>
+          <p>A guided builder, honest previews, and a PDF that looks the same on every device.</p>
+        </div>
+        <div class="feature-grid" id="feature-grid"></div>
+      </div>
+    </section>
+
+    <!-- LEVELS -->
+    <section class="section section-alt" id="levels">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow">Choose your level</span>
+          <h2>Three CV levels. One clear starting point.</h2>
+          <p>Pick the level that matches how much you have to say — you can always go deeper later.</p>
+        </div>
+        <div class="level-grid" id="level-grid"></div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="section" id="how">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow">The process</span>
+          <h2>How it works</h2>
+          <p>Five steps between a blank page and a finished PDF.</p>
+        </div>
+        <div class="steps" id="steps-grid"></div>
+      </div>
+    </section>
+
+    <!-- ABOUT / CONTACT band -->
+    <section class="section section-alt" id="contact">
+      <div class="container" style="display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;">
+        <div style="max-width:520px;">
+          <span class="eyebrow">Printkay's Digital Enterprise</span>
+          <h2 style="font-size:26px;margin:10px 0 10px;">Have a question, or need a custom CV built for you?</h2>
+          <p style="color:var(--text-muted);font-size:15px;">Reach the Printkay's Tech team and we'll get back to you.</p>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <a href="mailto:calebanthony790@gmail.com" class="btn btn-outline"><i class="fa-solid fa-envelope"></i> calebanthony790@gmail.com</a>
+          <a href="https://wa.me/2349020730693" target="_blank" rel="noopener" class="btn btn-gold"><i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp</a>
+          <a href="https://share.google/rFkUjwgO5nAJ8h3Rs" target="_blank" rel="noopener" class="btn btn-outline"><i class="fa-brands fa-google"></i> View us on Google</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <div class="brand"><span class="brand-mark">PK</span> Printkay's Tech</div>
+          <p>A product of Printkay's Digital Enterprise. Build professional CVs in minutes, with your data staying on your own device.</p>
+          <div class="footer-social">
+            <a href="https://share.google/rFkUjwgO5nAJ8h3Rs" target="_blank" rel="noopener" aria-label="Google"><i class="fa-brands fa-google"></i></a>
+            <a href="#" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+            <a href="#" aria-label="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
+            <a href="https://wa.me/2349020730693" target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
+          </div>
+        </div>
+        <div><h5>Product</h5><a href="#features">Features</a><a href="#levels">CV Levels</a><a href="#how">How It Works</a></div>
+        <div><h5>Company</h5><a href="#contact">About</a><a href="#contact">Contact</a><a href="https://share.google/rFkUjwgO5nAJ8h3Rs" target="_blank" rel="noopener">Find us on Google</a></div>
+        <div><h5>Legal</h5><a href="#">Privacy Policy</a><a href="#">Terms of Service</a><a href="mailto:calebanthony790@gmail.com">calebanthony790@gmail.com</a></div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span id="year"></span> Printkay's Digital Enterprise. All rights reserved.</span>
+        <span>Printkay's Tech CV Maker · WhatsApp: 0902 073 0693</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ============================================================
+     BUILDER APP
+     ============================================================ -->
+<div id="builder-app">
+  <div class="builder-header">
+    <div class="builder-header-top">
+      <div class="builder-header-left">
+        <button class="icon-btn" id="back-to-levels" title="Back to CV level selection" aria-label="Back to CV level selection"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="builder-title">
+          <b>Printkay's Tech CV Maker</b>
+          <span id="builder-level-label">Basic CV</span>
+        </div>
+        <span class="level-pill" id="level-pill">BASIC</span>
+      </div>
+      <div class="builder-header-actions">
+        <button class="btn btn-ghost btn-sm" id="btn-save-draft" aria-label="Save draft" title="Save draft"><i class="fa-solid fa-floppy-disk"></i> <span class="btn-text">Save Draft</span></button>
+        <button class="btn btn-ghost btn-sm" id="btn-clear-form" aria-label="Clear form" title="Clear form"><i class="fa-solid fa-eraser"></i> <span class="btn-text">Clear Form</span></button>
+        <a href="#" id="whatsapp-help-btn-builder" class="icon-btn whatsapp-header-btn" target="_blank" rel="noopener"
+           title="Need help? Chat with us on WhatsApp" aria-label="Chat with us on WhatsApp for help filling up your CV">
+          <i class="fa-brands fa-whatsapp"></i>
+        </a>
+        <button class="theme-toggle" id="theme-toggle-2" aria-label="Toggle dark mode"><i class="fa-solid fa-moon" id="theme-icon-2"></i></button>
+        <button class="btn btn-primary btn-sm" id="btn-generate-pdf"><i class="fa-solid fa-file-arrow-down"></i> <span id="generate-btn-label">Download PDF</span></button>
+      </div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    <div class="section-tabs" id="section-tabs"></div>
+  </div>
+
+  <!-- ============================================================
+       COVER LETTER PROMO — ad-style banner, "Coming Soon". Clicking
+       it (or the matching landing-page feature card) opens an info
+       modal; see "SECTION: COVER LETTER PROMO" in the script.
+       ============================================================ -->
+  <div class="cover-promo" id="cover-promo">
+    <span class="cover-promo-badge">NEW</span>
+    <i class="fa-solid fa-wand-magic-sparkles"></i>
+    <span class="cover-promo-text">Want a matching <b>Cover Letter</b> for this CV?</span>
+    <button class="btn btn-gold btn-sm" id="btn-cover-promo">Generate Cover Letter</button>
+  </div>
+
+  <div class="builder-layout">
+    <div class="form-pane" id="form-pane">
+      <div class="error-summary" id="error-summary">
+        <h4><i class="fa-solid fa-triangle-exclamation"></i> Please fix the following before downloading</h4>
+        <ul id="error-summary-list"></ul>
+      </div>
+      <div id="form-sections"></div>
+      <div class="form-nav">
+        <button class="btn btn-outline" id="btn-prev"><i class="fa-solid fa-arrow-left"></i> Previous</button>
+        <button class="btn btn-primary" id="btn-next">Next <i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+    </div>
+    <div class="preview-pane">
+      <div class="preview-toolbar">
+        <div class="zoom-controls">
+          <button class="icon-btn" id="zoom-out" title="Zoom out" aria-label="Zoom out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+          <span id="zoom-level">70%</span>
+          <button class="icon-btn" id="zoom-in" title="Zoom in" aria-label="Zoom in"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+          <button class="icon-btn" id="zoom-fit" title="Fit to screen" aria-label="Fit to screen"><i class="fa-solid fa-expand"></i></button>
+        </div>
+        <!-- Download-format switch: lets the person choose PDF or JPEG before hitting Download.
+             A single source of truth (downloadFormat, in the JS PDF/EXPORT section below) drives
+             both this control and the header / mobile Download button labels. -->
+        <div class="format-toggle" id="format-toggle" role="group" aria-label="Choose download format">
+          <button type="button" class="format-toggle-btn active" data-format="pdf"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+          <button type="button" class="format-toggle-btn" data-format="docx"><i class="fa-solid fa-file-word"></i> DOCX</button>
+        </div>
+        <button class="btn btn-outline btn-sm" id="btn-preview-full"><i class="fa-solid fa-eye"></i> Full Preview</button>
+      </div>
+      <div class="preview-scroll" id="preview-scroll">
+        <div id="cv-preview-wrap"><div id="cv-page" data-template="classic" data-layout="single" data-page-size="a4"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mobile-bottom-nav">
+    <button class="btn btn-outline" id="btn-prev-m"><i class="fa-solid fa-arrow-left"></i></button>
+    <button class="btn btn-ghost" id="btn-preview-m"><i class="fa-solid fa-eye"></i> Preview</button>
+    <button class="btn btn-gold" id="btn-pdf-m"><i class="fa-solid fa-file-arrow-down"></i> <span id="generate-btn-label-m">PDF</span></button>
+    <button class="btn btn-primary" id="btn-next-m">Next <i class="fa-solid fa-arrow-right"></i></button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
