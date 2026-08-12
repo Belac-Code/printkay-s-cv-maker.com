@@ -161,7 +161,7 @@ p{margin:0;}
 /* Signature hero visual: a live self-filling CV mock card */
 .hero-visual{position:relative;}
 .mock-cv{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);
-  padding:26px 26px 22px;max-width:400px;margin:0 auto;position:relative;}
+  padding:26px 26px 22px;max-width:420px;margin:0 auto;position:relative;}
 .mock-cv-head{display:flex;gap:14px;align-items:center;border-bottom:1px solid var(--border-soft);padding-bottom:16px;margin-bottom:16px;}
 .mock-avatar{width:52px;height:52px;border-radius:50%;background:linear-gradient(155deg,var(--blue),var(--navy-2));flex:none;}
 .mock-line{height:10px;border-radius:5px;background:var(--border);position:relative;overflow:hidden;}
@@ -622,7 +622,13 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
   .steps{grid-template-columns:repeat(5,1fr);}
   .footer-grid{grid-template-columns:1fr 1fr;}
   .hero .container{grid-template-columns:1fr;}
-  .hero-visual{order:-1;max-width:360px;margin:0 auto 10px;}
+  /* Bug fix: margin:0 auto on a CSS Grid item cancels the default "stretch"
+     behavior, so .hero-visual was shrink-wrapping to its own content's
+     intrinsic width (just the avatar/label) instead of filling the column —
+     that's what made the mock CV card render as a narrow sliver on phones.
+     Restoring an explicit width makes it fill the column again, up to a
+     roomier cap so it actually reads as a presentable card on mobile. */
+  .hero-visual{order:-1;width:100%;max-width:420px;margin:0 auto 10px;}
   .hero{padding:48px 0 60px;}
 }
 @media (max-width:720px){
