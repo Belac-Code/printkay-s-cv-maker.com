@@ -102,20 +102,43 @@ p{margin:0;}
   background:color-mix(in srgb, var(--surface) 88%, transparent);backdrop-filter:blur(14px) saturate(1.4);
   border-bottom:1px solid var(--border-soft);}
 .site-header .container{display:flex;align-items:center;justify-content:space-between;gap:20px;width:100%;}
-.brand{display:flex;align-items:center;gap:11px;font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--navy);}
+.brand{display:flex;align-items:center;gap:11px;font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--navy);
+  min-width:0;flex:1 1 auto;}
 [data-theme="dark"] .brand{color:#F3F6FA;}
-.brand-mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(155deg,var(--navy-2),var(--blue));
+.brand-mark{ padding:8px; width:38px;height:38px;border-radius:11px;background:linear-gradient(155deg,var(--navy-2),var(--blue));
   display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-display);font-weight:800;font-size:15px;flex:none;box-shadow:var(--shadow-sm);}
-.brand small{display:block;font-family:var(--font-mono);font-weight:400;font-size:10.5px;letter-spacing:.06em;color:var(--text-faint);text-transform:uppercase;}
+/* Fix for "the name comes out of the header": the wordmark span had no
+   white-space control, so at narrow widths the browser wrapped "Printkay's
+   Tech" onto a second line instead of shrinking — and since .site-header has
+   a fixed height, that second line rendered outside the header's own box.
+   Constraining it to one line + ellipsis keeps the header a fixed, predictable
+   height at every width; min-width:0 on the flex item is required for the
+   ellipsis to actually kick in inside a flex row instead of being ignored. */
+.brand > span{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;display:block;}
+.brand small{display:block;font-family:var(--font-mono);font-weight:400;font-size:10.5px;letter-spacing:.06em;color:var(--text-faint);text-transform:uppercase;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .main-nav{display:flex;align-items:center;gap:30px;}
 .main-nav a{font-size:14.5px;font-weight:500;color:var(--text-muted);transition:color var(--transition);position:relative;padding:6px 0;}
 .main-nav a:hover{color:var(--navy-2);}
 [data-theme="dark"] .main-nav a:hover{color:#fff;}
-.header-actions{display:flex;align-items:center;gap:10px;}
+.nav-cta-mobile{display:none;}
+.header-actions{display:flex;align-items:center;gap:10px;flex:none;}
 .theme-toggle{width:40px;height:40px;border-radius:999px;border:1px solid var(--border);background:var(--surface);
   display:flex;align-items:center;justify-content:center;color:var(--text-muted);transition:all var(--transition);flex:none;}
 .theme-toggle:hover{border-color:var(--blue);color:var(--navy-2);}
-.nav-toggle{display:none;width:40px;height:40px;border-radius:10px;border:1px solid var(--border);background:var(--surface);align-items:center;justify-content:center;color:var(--text);}
+/* ------------------------------------------------------------
+   Hamburger — restyled as a filled, unmistakably "tappable" navy
+   pill (previously it looked identical to the plain bordered
+   theme-toggle, which is why it read as decorative rather than a
+   menu control) and moved to the far end of the header actions
+   with extra separation so it doesn't get crowded against the
+   "Create My CV" button on narrow phones.
+   ------------------------------------------------------------ */
+.nav-toggle{display:none;width:42px;height:42px;border-radius:12px;border:none;
+  background:var(--navy-2);color:#fff;align-items:center;justify-content:center;
+  box-shadow:var(--shadow-sm);transition:all var(--transition);margin-left:4px;flex:none;}
+.nav-toggle:hover{background:var(--navy);box-shadow:var(--shadow);}
+.nav-toggle[aria-expanded="true"]{background:var(--gold);color:#2A1F08;}
 /* ------------------------------------------------------------
    Mobile nav drawer + backdrop (fixes: no way to close the menu
    except re-tapping the hamburger, no visual "this is a drawer"
@@ -134,6 +157,19 @@ p{margin:0;}
     box-shadow:var(--shadow-lg);gap:4px;}
   .main-nav.mobile-open a{padding:12px 4px;border-bottom:1px solid var(--border-soft);}
   .main-nav.mobile-open a:last-child{border-bottom:none;}
+  .nav-cta-mobile{display:flex !important;align-items:center;justify-content:center;gap:8px;margin-top:10px;
+    background:var(--navy-2);color:#fff !important;border-radius:999px;font-weight:600;border-bottom:none !important;
+    padding:13px 4px !important;}
+}
+@media (max-width:540px){
+  /* The hero section directly below already has its own large "Create My
+     CV" button, so the header's copy is pure redundancy once space gets
+     tight — dropping it here is what actually stops the brand name / theme
+     toggle / hamburger trio from being squeezed enough to wrap in the first
+     place, rather than just shrinking everything a little. */
+  #hero-cta-top{display:none;}
+  .site-header .container{gap:10px;}
+  .header-actions{gap:6px;}
 }
 
 /* ============================================================
@@ -258,6 +294,9 @@ p{margin:0;}
 #builder-app{display:none;min-height:100vh;background:var(--bg);}
 #builder-app.active{display:block;}
 #landing-root.hidden{display:none;}
+/* Cover Letter app view — same show/hide pattern as #builder-app above. */
+#coverletter-app{display:none;min-height:100vh;background:var(--bg);}
+#coverletter-app.active{display:block;}
 
 .builder-header{position:sticky;top:0;z-index:150;background:var(--surface);border-bottom:1px solid var(--border-soft);
   box-shadow:var(--shadow-sm);}
@@ -476,17 +515,24 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 #cv-page[data-template="executive"] .cv-header-row .cv-contact{color:#fff;opacity:.9;}
 #cv-page[data-template="modern"] .cv-h2{background:color-mix(in srgb, var(--cv-primary) 8%, white);padding:6px 10px;border-bottom:none;border-left:3px solid var(--cv-primary);border-radius:4px;}
 
-/* ---- Native browser print (used by the "Print / Save as PDF" button) ----
-   Only #cv-preview-wrap (the CV page) stays visible; everything else on the
-   page — header, form, toolbars, watermark — is hidden. @page size itself is
-   set dynamically in JS (see "SECTION: PRINT / SAVE AS PDF") to match the
-   A4/Letter choice in the design panel, since @page can't read a CSS variable. */
+/* ---- Native browser print (used by both "Print / Save as PDF" buttons) ----
+   Only the relevant preview wrap stays visible; everything else — header,
+   form, toolbars, watermark — is hidden. Which one is "relevant" is decided
+   by body[data-print-target], set right before window.print() is called
+   (see JS "SECTION: PRINT / SAVE AS PDF" for the CV, and "SECTION: COVER
+   LETTER BUILDER" for the letter) — this is what lets one shared print
+   stylesheet serve two completely different documents. @page size itself is
+   set dynamically in JS since @page can't read a CSS variable. */
 @media print{
   body *{visibility:hidden;}
-  #cv-preview-wrap, #cv-preview-wrap *{visibility:visible;}
-  #cv-preview-wrap{position:absolute;top:0;left:0;transform:none !important;box-shadow:none !important;}
+  body[data-print-target="cv"] #cv-preview-wrap,
+  body[data-print-target="cv"] #cv-preview-wrap *{visibility:visible;}
+  body[data-print-target="cv"] #cv-preview-wrap{position:absolute;top:0;left:0;transform:none !important;box-shadow:none !important;}
+  body[data-print-target="coverletter"] #cl-preview-wrap,
+  body[data-print-target="coverletter"] #cl-preview-wrap *{visibility:visible;}
+  body[data-print-target="coverletter"] #cl-preview-wrap{position:absolute;top:0;left:0;transform:none !important;box-shadow:none !important;}
   .cv-watermark{display:none !important;}
-  #pdf-loading, #toast-root, .modal-overlay{display:none !important;}
+  #pdf-loading, #toast-root, .modal-overlay, .whatsapp-fab{display:none !important;}
 }
 
 /* ============================================================
@@ -604,6 +650,68 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
 .pdf-loading-dots{display:inline-block;width:1.2em;text-align:left;}
 
 /* ============================================================
+   FEEDBACK SECTION  (mailto-based — no backend, see JS "SECTION:
+   FEEDBACK FORM" for how the fields are turned into an email)
+   ============================================================ */
+.feedback-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:32px;max-width:720px;margin:0 auto;box-shadow:var(--shadow-sm);}
+.feedback-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-top:6px;}
+.feedback-note{font-size:12.8px;color:var(--text-faint);}
+
+/* ============================================================
+   COVER LETTER — landing marketing section
+   ============================================================ */
+.cl-promo-row{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:center;}
+.cl-promo-copy p{color:var(--text-muted);font-size:16px;margin:14px 0 26px;}
+.cl-promo-mock{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  box-shadow:var(--shadow-lg);padding:28px;max-width:340px;margin:0 auto;}
+.cl-promo-mock-bar{height:12px;width:50%;border-radius:5px;background:linear-gradient(90deg,var(--blue),var(--gold));margin-bottom:14px;}
+.cl-promo-mock-line{height:9px;border-radius:5px;background:var(--border);margin-bottom:8px;}
+.cl-promo-mock-para{height:8px;border-radius:4px;background:var(--border-soft);margin-top:14px;width:100%;}
+
+/* ============================================================
+   COVER LETTER — document preview (#cl-page)
+   Same "design tokens as CSS variables" pattern as #cv-page, but a much
+   smaller set since a letter only needs colour + 1 vs 2 columns.
+   ============================================================ */
+#cl-preview-wrap{background:#fff;box-shadow:var(--shadow-lg);}
+#cl-page{
+  --cl-primary:#123B6D; --cl-accent:#1D70B8; --cl-text:#1B2430;
+  width:794px; min-height:1123px; background:#fff; color:var(--cl-text);
+  font-family:'Inter',sans-serif; font-size:13.5px; line-height:1.6;
+  padding:48px; position:relative; box-sizing:border-box;
+}
+#cl-page[data-page-size="letter"]{width:816px;min-height:1056px;}
+#cl-page *{box-sizing:border-box;}
+.cl-empty-hint{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:600px;
+  color:var(--text-faint);text-align:center;padding:40px;}
+.cl-empty-hint i{font-size:40px;margin-bottom:16px;}
+.cl-header{margin-bottom:28px;}
+.cl-name{font-family:var(--font-display);font-weight:800;font-size:20px;color:var(--cl-primary);margin-bottom:2px;}
+.cl-contact{font-size:12px;color:var(--cl-text);opacity:.8;}
+.cl-contact a{color:var(--cl-accent);}
+.cl-date{margin:22px 0;font-size:13px;color:var(--cl-text);opacity:.85;}
+.cl-recipient{margin-bottom:22px;font-size:13px;line-height:1.5;}
+.cl-recipient b{color:var(--cl-primary);}
+.cl-greeting{margin-bottom:14px;font-weight:600;color:var(--cl-primary);}
+.cl-body p{margin-bottom:14px;white-space:pre-line;}
+.cl-signoff{margin-top:26px;}
+.cl-signoff .cl-name{margin-top:26px;font-size:14px;}
+.cl-accent-rule{height:3px;width:52px;background:var(--cl-accent);border-radius:99px;margin-bottom:18px;}
+
+/* Two-column layout: name/contact/date live in a left sidebar, the letter
+   body sits in the main column — same visual idea as the CV's sidebar
+   layout, reused for consistency, driven by data-columns="2". */
+#cl-page[data-columns="2"]{display:flex;padding:0;}
+#cl-page[data-columns="2"] .cl-sidebar{width:34%;background:var(--cl-primary);color:#fff;padding:48px 26px;}
+#cl-page[data-columns="2"] .cl-sidebar .cl-name{color:#fff;}
+#cl-page[data-columns="2"] .cl-sidebar .cl-contact{color:#fff;opacity:.9;}
+#cl-page[data-columns="2"] .cl-sidebar .cl-contact a{color:#fff;}
+#cl-page[data-columns="2"] .cl-sidebar .cl-date{color:#fff;opacity:.85;}
+#cl-page[data-columns="2"] .cl-main{width:66%;padding:48px 40px;}
+.cl-footer-brand{position:absolute;bottom:16px;left:48px;right:48px;font-size:9.5px;color:var(--cl-text);opacity:.4;font-family:var(--font-mono);}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width:1100px){
@@ -630,6 +738,10 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
      roomier cap so it actually reads as a presentable card on mobile. */
   .hero-visual{order:-1;width:100%;max-width:420px;margin:0 auto 10px;}
   .hero{padding:48px 0 60px;}
+  /* Same CSS Grid "margin:auto cancels stretch" behaviour applies here —
+     width:100% keeps the cover-letter mock card from shrink-wrapping too. */
+  .cl-promo-row{grid-template-columns:1fr;}
+  .cl-promo-mock{order:-1;width:100%;max-width:340px;margin:0 auto 20px;}
 }
 @media (max-width:720px){
   .steps{grid-template-columns:repeat(2,1fr);gap:26px;}
