@@ -105,7 +105,7 @@ p{margin:0;}
 .brand{display:flex;align-items:center;gap:11px;font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--navy);
   min-width:0;flex:1 1 auto;}
 [data-theme="dark"] .brand{color:#F3F6FA;}
-.brand-mark{width:38px;height:38px;border-radius:11px;background:linear-gradient(155deg,var(--navy-2),var(--blue));
+.brand-mark{ padding:8px; width:38px;height:38px;border-radius:11px;background:linear-gradient(155deg,var(--navy-2),var(--blue));
   display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-display);font-weight:800;font-size:15px;flex:none;box-shadow:var(--shadow-sm);}
 /* Fix for "the name comes out of the header": the wordmark span had no
    white-space control, so at narrow widths the browser wrapped "Printkay's
@@ -355,12 +355,7 @@ p{margin:0;}
 .field.invalid input,.field.invalid textarea,.field.invalid select{border-color:var(--error);background:var(--error-soft);}
 input[type=text],input[type=email],input[type=tel],input[type=url],input[type=date],input[type=month],input[type=number],
 textarea,select{
-  /* font-size:16px is not a style choice — it's the iOS Safari zoom
-     threshold. Anything below 16px on a focused field makes Safari
-     auto-zoom the whole page in (then back out on blur) to keep the
-     text legible, which is what read as "the screen moving on the
-     x-axis," only on iOS. 16px is the smallest size that avoids it. */
-  font-family:var(--font-body);font-size:16px;padding:11px 13px;border-radius:10px;border:1.5px solid var(--border);
+  font-family:var(--font-body);font-size:14.5px;padding:11px 13px;border-radius:10px;border:1.5px solid var(--border);
   background:var(--surface-2);color:var(--text);transition:all var(--transition);width:100%;
 }
 [data-theme="dark"] input,[data-theme="dark"] textarea,[data-theme="dark"] select{background:var(--surface);}
