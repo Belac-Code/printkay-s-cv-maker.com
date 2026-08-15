@@ -43,7 +43,7 @@ const FEATURES = [
   {icon:"fa-file-arrow-down",title:"PDF & Word Download",desc:"Print or save as PDF with your own settings, or export a Word (.docx) file."},
   {icon:"fa-mobile-screen-button",title:"Mobile & Desktop",desc:"A fully responsive builder that works on any screen size."},
   {icon:"fa-shield-halved",title:"Local Autosave",desc:"Your draft saves to your own browser — nothing leaves your device."},
-  {icon:"fa-wand-magic-sparkles",title:"Cover Letter Generator",desc:"A matching cover letter for your CV, generated in one click.",soon:true},
+  {icon:"fa-wand-magic-sparkles",title:"Cover Letter Generator",desc:"A matching cover letter for your CV — colours, 1 or 2 columns, PDF or Word."},
   {icon:"fa-brands fa-whatsapp",title:"WhatsApp Help",desc:"Stuck filling a section? Chat with our team straight from the app."},
 ];
 
@@ -1108,7 +1108,8 @@ function renderPreview(){
 
   if(!hasAnything){
     page.innerHTML = `<div class="cv-empty-hint"><i class="fa-regular fa-file-lines"></i><p><b>Your CV preview will appear here</b><br>Start filling in your personal information to see it come to life.</p></div>`;
-    if(typeof applyZoom === "function") applyZoom();
+    // No explicit zoom call needed here — the ResizeObserver set up in
+    // cvZoom.initResizeObserver() reacts to this innerHTML change on its own.
     return;
   }
 
@@ -1196,10 +1197,11 @@ function renderPreview(){
   brand.innerHTML = `<span>Made with Printkay's Tech CV Maker</span>`;
   page.appendChild(brand);
 
-  // Content height just changed — resize the (already-scaled) wrapper box to
-  // match, so the preview pane never shows leftover blank space or an
-  // unexpected scrollbar after the CV grows or shrinks.
-  if(typeof applyZoom === "function") applyZoom();
+  // No explicit zoom/resize call here on purpose — see "SECTION 10: ZOOM /
+  // PREVIEW CONTROLS" below. The ResizeObserver set up there watches #cv-page
+  // directly and reacts to this innerHTML change (and any resulting height
+  // change) asynchronously, on its own schedule, instead of us forcing a
+  // synchronous layout read here on every keystroke.
 }
 
 /* ---------------------------------------------------------
@@ -1209,45 +1211,134 @@ function renderPreview(){
    shrink the element's box in the layout — only how it's painted — so a
    794px-wide page transformed down to 42% still reserved 794px of horizontal
    space in its flex container, forcing a horizontal scrollbar on narrow
-   phones. computeFitZoom() now sizes the zoom to the *actual* available
-   width of the preview pane, and applyZoom() resizes #cv-preview-wrap's own
-   box (width/height) to match the scaled-down visual size, so the layout
-   never reserves more room than what's actually visible.
+   phones. computeFitZoom sizes the zoom to the *actual* available width of
+   the preview pane, and applyZoom resizes the wrapper's own box (width/
+   height) to match the scaled-down visual size, so the layout never
+   reserves more room than what's actually visible.
+
+   THE REAL FIX for the iOS-only "stuck button" glitch (earlier attempts only
+   reduced how often this ran — this removes the actual cause): reading
+   offsetHeight by hand inside a keystroke handler forces the browser to
+   synchronously flush pending layout ("forced synchronous layout"), and
+   doing that repeatedly inside an element with an active CSS transform is a
+   documented trigger for WebKit/iOS Safari compositor bugs where an
+   unrelated element elsewhere on the page gets mis-painted stuck at a stale
+   position. A ResizeObserver reports size changes on the browser's own
+   async, batched schedule instead, so we never force that synchronous read.
+
+   createZoomController() is a small factory instead of one-off global
+   functions, because the CV preview and the Cover Letter preview (see
+   "SECTION: COVER LETTER BUILDER" below) both need this exact same
+   behaviour. Writing it once and instantiating it twice is less code than
+   two near-identical copies, and any future fix only has to happen here.
    --------------------------------------------------------- */
-function computeFitZoom(){
-  const scroll = document.getElementById("preview-scroll");
-  const page = document.getElementById("cv-page");
-  const available = scroll.clientWidth - 32; // minus the preview-scroll's own padding
-  const pageWidth = page.offsetWidth || (state.design.pageSize==="letter" ? 816 : 794);
-  const fit = available / pageWidth;
-  return Math.max(0.22, Math.min(1, fit));
+function createZoomController({ pageId, wrapId, scrollId, zoomLevelId, defaultPageWidth }){
+  let zoom = 0.7;
+  let lastApplied = { zoom: null, width: null, height: null };
+
+  function computeFitZoom(){
+    const scroll = document.getElementById(scrollId);
+    const page = document.getElementById(pageId);
+    if(!scroll || !page) return zoom;
+    const available = scroll.clientWidth - 32; // minus the preview-scroll's own padding
+    const pageWidth = page.offsetWidth || defaultPageWidth;
+    const fit = available / pageWidth;
+    return Math.max(0.22, Math.min(1, fit));
+  }
+
+  function applyZoom(measuredWidth, measuredHeight){
+    const wrap = document.getElementById(wrapId);
+    const page = document.getElementById(pageId);
+    if(!wrap || !page) return;
+    // Accept sizes from a ResizeObserver entry when available (no layout
+    // read needed); only fall back to reading offsetWidth/Height for the
+    // explicit, user-initiated calls (zoom buttons, window resize) below.
+    const w = measuredWidth != null ? measuredWidth : page.offsetWidth;
+    const h = measuredHeight != null ? measuredHeight : page.offsetHeight;
+    const targetWidth = Math.round(w * zoom);
+    const targetHeight = Math.round(h * zoom);
+
+    if(lastApplied.zoom===zoom && lastApplied.width===targetWidth && lastApplied.height===targetHeight){
+      const label = document.getElementById(zoomLevelId);
+      if(label) label.textContent = Math.round(zoom*100)+"%";
+      return;
+    }
+
+    wrap.style.transform = `scale(${zoom})`;
+    wrap.style.transformOrigin = "top center";
+    wrap.style.width = targetWidth + "px";
+    wrap.style.height = targetHeight + "px";
+    const label = document.getElementById(zoomLevelId);
+    if(label) label.textContent = Math.round(zoom*100)+"%";
+    lastApplied = { zoom, width: targetWidth, height: targetHeight };
+  }
+
+  // Watches the page for size changes (typing, section switches, design
+  // changes — anything that changes how tall the document is) and
+  // re-applies zoom automatically, asynchronously, without ever reading
+  // offsetHeight by hand mid-keystroke.
+  let observer = null;
+  function initResizeObserver(){
+    const page = document.getElementById(pageId);
+    if(!page || typeof ResizeObserver === "undefined") return; // very old browsers: zoom just stays at its last explicit value
+    observer = new ResizeObserver((entries)=>{
+      const entry = entries[0];
+      if(!entry) return;
+      const box = entry.borderBoxSize && entry.borderBoxSize[0];
+      const w = box ? box.inlineSize : entry.contentRect.width;
+      const h = box ? box.blockSize : entry.contentRect.height;
+      applyZoom(w, h);
+    });
+    observer.observe(page);
+  }
+
+  function setZoom(next){ zoom = next; }
+  function getZoom(){ return zoom; }
+
+  return { computeFitZoom, applyZoom, initResizeObserver, setZoom, getZoom };
 }
-function applyZoom(){
-  const wrap = document.getElementById("cv-preview-wrap");
-  const page = document.getElementById("cv-page");
-  wrap.style.transform = `scale(${zoom})`;
-  wrap.style.transformOrigin = "top center";
-  // Shrink the wrapper's own box to the scaled size so the flex container
-  // (and the page) never has to reserve/scroll the full unscaled width.
-  wrap.style.width = (page.offsetWidth * zoom) + "px";
-  wrap.style.height = (page.offsetHeight * zoom) + "px";
-  document.getElementById("zoom-level").textContent = Math.round(zoom*100)+"%";
-}
-document.getElementById("zoom-in").addEventListener("click",()=>{ zoom = Math.min(1.4, zoom+0.1); applyZoom(); });
-document.getElementById("zoom-out").addEventListener("click",()=>{ zoom = Math.max(0.2, zoom-0.1); applyZoom(); });
-document.getElementById("zoom-fit").addEventListener("click",()=>{ zoom = computeFitZoom(); applyZoom(); });
-zoom = computeFitZoom();
-applyZoom();
+
+// One controller for the CV preview, one for the Cover Letter preview —
+// completely independent, same tested logic underneath.
+const cvZoom = createZoomController({
+  pageId: "cv-page", wrapId: "cv-preview-wrap", scrollId: "preview-scroll",
+  zoomLevelId: "zoom-level", defaultPageWidth: 794
+});
+const clZoom = createZoomController({
+  pageId: "cl-page", wrapId: "cl-preview-wrap", scrollId: "cl-preview-scroll",
+  zoomLevelId: "cl-zoom-level", defaultPageWidth: 794
+});
+
+document.getElementById("zoom-in").addEventListener("click",()=>{ cvZoom.setZoom(Math.min(1.4, cvZoom.getZoom()+0.1)); cvZoom.applyZoom(); });
+document.getElementById("zoom-out").addEventListener("click",()=>{ cvZoom.setZoom(Math.max(0.2, cvZoom.getZoom()-0.1)); cvZoom.applyZoom(); });
+document.getElementById("zoom-fit").addEventListener("click",()=>{ cvZoom.setZoom(cvZoom.computeFitZoom()); cvZoom.applyZoom(); });
+cvZoom.setZoom(cvZoom.computeFitZoom());
+cvZoom.applyZoom();
+
+document.getElementById("cl-zoom-in").addEventListener("click",()=>{ clZoom.setZoom(Math.min(1.4, clZoom.getZoom()+0.1)); clZoom.applyZoom(); });
+document.getElementById("cl-zoom-out").addEventListener("click",()=>{ clZoom.setZoom(Math.max(0.2, clZoom.getZoom()-0.1)); clZoom.applyZoom(); });
+document.getElementById("cl-zoom-fit").addEventListener("click",()=>{ clZoom.setZoom(clZoom.computeFitZoom()); clZoom.applyZoom(); });
+clZoom.setZoom(clZoom.computeFitZoom());
+clZoom.applyZoom();
+
 let resizeTimer = null;
 window.addEventListener("resize",()=>{
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(()=>{ zoom = computeFitZoom(); applyZoom(); }, 150);
+  resizeTimer = setTimeout(()=>{
+    cvZoom.setZoom(cvZoom.computeFitZoom()); cvZoom.applyZoom();
+    clZoom.setZoom(clZoom.computeFitZoom()); clZoom.applyZoom();
+  }, 150);
 });
 function scrollPreviewIntoView(){
   document.getElementById("preview-scroll").scrollIntoView({behavior:"smooth", block:"start"});
 }
 document.getElementById("btn-preview-full").addEventListener("click", scrollPreviewIntoView);
 document.getElementById("btn-preview-m").addEventListener("click", scrollPreviewIntoView);
+function scrollClPreviewIntoView(){
+  document.getElementById("cl-preview-scroll").scrollIntoView({behavior:"smooth", block:"start"});
+}
+document.getElementById("cl-preview-m").addEventListener("click", scrollClPreviewIntoView);
+
 
 /* ---------------------------------------------------------
    11. AUTOSAVE / DRAFT / CLEAR
@@ -1349,18 +1440,22 @@ function initWatermarkBackground(){
 }
 
 /* ============================================================================
-   14. DOWNLOAD FORMAT SWITCH  (PDF vs JPEG)
+   14. DOWNLOAD FORMAT SWITCH  (PDF vs DOCX)
    ----------------------------------------------------------------------------
-   downloadFormat is the single source of truth. The segmented control in the
-   preview toolbar (#format-toggle) writes to it; the header and mobile-nav
-   Download buttons just read it to (a) show the right label and (b) decide
-   whether their click should call openPrintDialog() or generateJPEG().
+   downloadFormat is the single source of truth for the CV builder. The
+   segmented control in its preview toolbar (#format-toggle) writes to it;
+   the header and mobile-nav Download buttons just read it to decide whether
+   their click should call openCvPrintDialog() or generateDOCX(). Selectors
+   below are scoped to "#format-toggle .format-toggle-btn" specifically (not
+   the bare ".format-toggle-btn" class) because the Cover Letter builder has
+   its own, separately-scoped copy of this same control — see clDownloadFormat
+   in "SECTION: COVER LETTER BUILDER" — and the two must never cross-wire.
    ============================================================================ */
-let downloadFormat = "pdf"; // "pdf" | "jpeg"
+let downloadFormat = "pdf"; // "pdf" | "docx"
 
 function setDownloadFormat(fmt){
   downloadFormat = fmt;
-  document.querySelectorAll(".format-toggle-btn").forEach(b=>b.classList.toggle("active", b.dataset.format===fmt));
+  document.querySelectorAll("#format-toggle .format-toggle-btn").forEach(b=>b.classList.toggle("active", b.dataset.format===fmt));
   const label = fmt==="docx" ? "Download Word (.docx)" : "Print / Save as PDF";
   const labelM = fmt==="docx" ? "Word" : "Print";
   const iconClass = fmt==="docx" ? "fa-file-word" : "fa-print";
@@ -1368,7 +1463,7 @@ function setDownloadFormat(fmt){
   document.getElementById("generate-btn-label-m").textContent = labelM;
   document.querySelector("#btn-generate-pdf i").className = "fa-solid " + iconClass;
 }
-document.querySelectorAll(".format-toggle-btn").forEach(b=>{
+document.querySelectorAll("#format-toggle .format-toggle-btn").forEach(b=>{
   b.addEventListener("click", ()=> setDownloadFormat(b.dataset.format));
 });
 
@@ -1377,7 +1472,7 @@ document.querySelectorAll(".format-toggle-btn").forEach(b=>{
    browser's native print dialog (SECTION 17); DOCX builds a Word-compatible
    document from the same CV data (SECTION 18). */
 function runDownload(){
-  if(downloadFormat==="docx") generateDOCX(); else openPrintDialog();
+  if(downloadFormat==="docx") generateDOCX(); else openCvPrintDialog();
 }
 
 function sanitizeFilename(name){
@@ -1427,7 +1522,7 @@ async function withMinimumLoadingTime(workPromise, minMs){
    17. PRINT / SAVE AS PDF
    ----------------------------------------------------------------------------
    Rather than silently rasterizing a PDF in the background, the "Print / Save
-   as PDF" button now hands off to the browser's own native print dialog
+   as PDF" button hands off to the browser's own native print dialog
    (window.print()). That dialog is where the person can adjust paper size,
    margins, scale-to-fit, and orientation to their own taste, then either
    print for real or choose "Save as PDF" as the destination — which is the
@@ -1435,34 +1530,42 @@ async function withMinimumLoadingTime(workPromise, minMs){
    person controls.
 
    preparePrintPageSize() writes an @page CSS rule matching whatever paper
-   size (A4/Letter) is set in the Design panel, since @page can't read a CSS
-   custom property directly. The @media print rules in <style> (search
-   "Native browser print") hide everything except the CV page itself and
-   strip the on-screen zoom transform + watermark before the dialog opens.
+   size (A4/Letter) is set, since @page can't read a CSS custom property
+   directly. The @media print rules in <style> (search "Native browser
+   print") hide everything except the relevant page and strip the on-screen
+   zoom transform + watermark before the dialog opens. openPrintDialog() is
+   shared by both the CV and the Cover Letter — which one it prints is
+   decided entirely by the `target` argument ("cv" or "coverletter"), which
+   sets body[data-print-target] to steer the shared print stylesheet.
    ============================================================================ */
-function preparePrintPageSize(){
+function preparePrintPageSize(pageSize){
   let styleTag = document.getElementById("print-page-size-style");
   if(!styleTag){
     styleTag = document.createElement("style");
     styleTag.id = "print-page-size-style";
     document.head.appendChild(styleTag);
   }
-  const size = state.design.pageSize === "letter" ? "letter" : "A4";
+  const size = pageSize === "letter" ? "letter" : "A4";
   styleTag.textContent = `@page{ size:${size}; margin:0; }`;
 }
 
-async function openPrintDialog(){
-  if(!runValidationAndMaybeToast()){
-    toast("Please complete the required fields before printing or saving.","error");
-    return;
-  }
-  const hideLoading = showBrandedLoading(["Preparing your CV","Formatting for print","Opening print dialog"]);
-  preparePrintPageSize();
+async function openPrintDialog(target, pageSize, messages){
+  document.body.dataset.printTarget = target;
+  const hideLoading = showBrandedLoading(messages || ["Preparing your document","Formatting for print","Opening print dialog"]);
+  preparePrintPageSize(pageSize);
   // Short, real minimum — this path has no heavy canvas work, it's just a
   // friendly hand-off moment before the browser's own dialog takes over.
   await withMinimumLoadingTime(new Promise(resolve=>setTimeout(resolve, 30)), 1400);
   hideLoading();
   window.print();
+}
+
+async function openCvPrintDialog(){
+  if(!runValidationAndMaybeToast()){
+    toast("Please complete the required fields before printing or saving.","error");
+    return;
+  }
+  await openPrintDialog("cv", state.design.pageSize, ["Preparing your CV","Formatting for print","Opening print dialog"]);
   saveDraft(false);
 }
 
@@ -1623,19 +1726,394 @@ function hidePageLoader(){
 }
 
 /* ============================================================================
-   20. COVER LETTER PROMO  (ad-style "coming soon" feature)
+   20. COVER LETTER BUILDER
    ----------------------------------------------------------------------------
-   Both the builder's .cover-promo banner and the landing page's "Cover Letter
-   Generator" feature card (FEATURES array, tagged soon:true) open the same
-   informational modal via showComingSoon(). Nothing here writes to `state` —
-   it's purely a teaser for a feature that isn't built yet.
+   A second, smaller "app" living alongside the CV builder (#coverletter-app),
+   reusing the same header/layout/preview-toolbar CSS classes and the same
+   toast/confirmDialog/showBrandedLoading/withMinimumLoadingTime helpers, so
+   this section is mostly just "what's different about a cover letter" —
+   state shape, form fields, and how the letter itself is laid out.
+
+   Deliberately kept as ONE flat form (no multi-step wizard like the CV) since
+   a cover letter is short enough that stepping through sections would be
+   more friction than help.
    ============================================================================ */
-function showComingSoon(title, msg){
-  return infoDialog(title || "Coming Soon", msg || "This feature is on its way — thanks for your patience!", "Got it, thanks!");
+
+// ---- 20a. State ------------------------------------------------------------
+function emptyClState(){
+  const today = new Date();
+  return {
+    fullName:"", title:"", email:"", phone:"", location:"",
+    date: today.toISOString().slice(0,10), // yyyy-mm-dd; formatted for display in renderClPreview()
+    recipientName:"", recipientTitle:"", companyName:"", companyAddress:"",
+    jobTitle:"",
+    greeting:"", opening:"", body:"", closing:"", signOff:"Sincerely,",
+    design:{ primary:"#123B6D", accent:"#1D70B8", columns:1, pageSize:"a4" }
+  };
 }
-document.getElementById("btn-cover-promo").addEventListener("click", ()=>{
-  showComingSoon("Cover Letter Generator", "We're putting the finishing touches on a matching cover letter generator for your CV — it'll pull straight from what you've already filled in here. It'll be ready soon. Need one sooner? Message us on WhatsApp below.");
+let clState = emptyClState();
+const CL_DRAFT_KEY = "pk_cl_draft_v1";
+
+// ---- 20b. Field configuration ----------------------------------------------
+// Each entry describes one <input>/<textarea> and which part of clState it
+// writes to. A single delegated handler (bindClFields, below) reads this
+// list so we're not hand-wiring dozens of individual event listeners.
+const CL_FIELDS = [
+  { card:"Your Details", icon:"fa-id-card", fields:[
+    {key:"fullName", label:"Full Name", required:true, placeholder:"e.g. John Peter Williams"},
+    {key:"title", label:"Professional Title", placeholder:"e.g. Front-End Developer"},
+    {key:"email", label:"Email Address", type:"email", required:true, placeholder:"e.g. john@example.com"},
+    {key:"phone", label:"Phone Number", type:"tel", required:true, placeholder:"e.g. +234 801 234 5678"},
+    {key:"location", label:"Location", placeholder:"e.g. Port Harcourt, Nigeria", full:true},
+  ]},
+  { card:"Recipient & Role", icon:"fa-building", fields:[
+    {key:"recipientName", label:"Recipient Name", placeholder:"e.g. Jane Doe (leave blank for \"Hiring Manager\")"},
+    {key:"recipientTitle", label:"Recipient Title", placeholder:"e.g. Head of Engineering"},
+    {key:"companyName", label:"Company Name", placeholder:"e.g. Printkay's Tech"},
+    {key:"jobTitle", label:"Role You're Applying For", placeholder:"e.g. Frontend Developer"},
+    {key:"companyAddress", label:"Company Address", placeholder:"e.g. Port Harcourt, Nigeria", full:true},
+    {key:"date", label:"Letter Date", type:"date"},
+  ]},
+  { card:"Letter Content", icon:"fa-pen-nib", fields:[
+    {key:"greeting", label:"Greeting", placeholder:"Defaults to \"Dear [Recipient],\" if left blank", full:true},
+    {key:"opening", label:"Opening Paragraph", type:"textarea", placeholder:"Why you're writing and the role you want.", full:true},
+    {key:"body", label:"Main Paragraph", type:"textarea", placeholder:"Your relevant experience and why you're a fit.", full:true},
+    {key:"closing", label:"Closing Paragraph", type:"textarea", placeholder:"A confident close and a call to action.", full:true},
+    {key:"signOff", label:"Sign-off", placeholder:"e.g. Sincerely,"},
+  ]},
+];
+
+// ---- 20c. Form rendering ----------------------------------------------------
+function renderClForm(){
+  const host = document.getElementById("cl-form-sections");
+  host.innerHTML = CL_FIELDS.map(section => `
+    <div class="form-section-head"><h2><i class="fa-solid ${section.icon}" style="color:var(--blue);margin-right:8px;font-size:.85em;"></i>${section.card}</h2></div>
+    <div class="field-card">
+      <div class="field-grid">
+        ${section.fields.map(f => clFieldHtml(f)).join("")}
+      </div>
+    </div>
+  `).join("") + clDesignPanelHtml();
+
+  bindClFields(host);
+  bindClDesignPanel(host);
+}
+
+function clFieldHtml(f){
+  const val = clState[f.key] || "";
+  const req = f.required ? '<span class="req">*</span>' : '<span class="opt">optional</span>';
+  const id = "cl-f-" + f.key;
+  if(f.type === "textarea"){
+    return `<div class="field ${f.full?'full':''}" data-field-wrap="${f.key}">
+      <label for="${id}">${f.label} ${req}</label>
+      <textarea id="${id}" data-cl-key="${f.key}" placeholder="${f.placeholder||''}">${val}</textarea>
+      <div class="err-msg"><i class="fa-solid fa-circle-exclamation"></i> This field is required.</div>
+    </div>`;
+  }
+  return `<div class="field ${f.full?'full':''}" data-field-wrap="${f.key}">
+    <label for="${id}">${f.label} ${req}</label>
+    <input type="${f.type||'text'}" id="${id}" data-cl-key="${f.key}" placeholder="${f.placeholder||''}" value="${val.toString().replace(/"/g,'&quot;')}">
+    <div class="err-msg"><i class="fa-solid fa-circle-exclamation"></i> This field is required.</div>
+  </div>`;
+}
+
+function bindClFields(host){
+  host.querySelectorAll("[data-cl-key]").forEach(el=>{
+    el.addEventListener("input", ()=>{
+      clState[el.dataset.clKey] = el.value;
+      validateField(el); // reuses the CV builder's existing required-field highlight logic
+      renderClPreview();
+      clAutosaveDebounced();
+    });
+  });
+}
+
+// ---- 20d. Design panel (colours, columns, page size) -----------------------
+function clDesignPanelHtml(){
+  const d = clState.design;
+  return `
+    <div class="form-section-head"><h2><i class="fa-solid fa-palette" style="color:var(--blue);margin-right:8px;font-size:.85em;"></i>Design</h2></div>
+    <div class="field-card">
+      <h4 style="font-size:14px;margin-bottom:14px;">Colours</h4>
+      <div class="tone-grid">
+        <div class="color-field"><input type="color" id="cl-d-primary" value="${d.primary}"><span>Primary</span><small id="cl-d-primary-v">${d.primary.toUpperCase()}</small></div>
+        <div class="color-field"><input type="color" id="cl-d-accent" value="${d.accent}"><span>Accent</span><small id="cl-d-accent-v">${d.accent.toUpperCase()}</small></div>
+      </div>
+    </div>
+    <div class="field-card">
+      <h4 style="font-size:14px;margin-bottom:14px;">Layout</h4>
+      <div class="template-grid" id="cl-columns-grid" style="grid-template-columns:repeat(2,1fr);">
+        <button type="button" class="template-opt ${d.columns===1?'active':''}" data-columns="1"><div class="tpl-swatch"></div><span>1 Column</span></button>
+        <button type="button" class="template-opt ${d.columns===2?'active':''}" data-columns="2"><div class="tpl-swatch"></div><span>2 Column</span></button>
+      </div>
+      <div class="field" style="margin-top:16px;"><label>Page Size</label>
+        <select id="cl-d-pagesize">
+          <option value="a4" ${d.pageSize==='a4'?'selected':''}>A4</option>
+          <option value="letter" ${d.pageSize==='letter'?'selected':''}>Letter</option>
+        </select>
+      </div>
+    </div>
+  `;
+}
+
+function bindClDesignPanel(host){
+  const primaryEl = host.querySelector("#cl-d-primary");
+  const accentEl = host.querySelector("#cl-d-accent");
+  primaryEl.addEventListener("input", ()=>{
+    clState.design.primary = primaryEl.value;
+    host.querySelector("#cl-d-primary-v").textContent = primaryEl.value.toUpperCase();
+    renderClPreview(); clAutosaveDebounced();
+  });
+  accentEl.addEventListener("input", ()=>{
+    clState.design.accent = accentEl.value;
+    host.querySelector("#cl-d-accent-v").textContent = accentEl.value.toUpperCase();
+    renderClPreview(); clAutosaveDebounced();
+  });
+  host.querySelectorAll("#cl-columns-grid [data-columns]").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      clState.design.columns = parseInt(btn.dataset.columns, 10);
+      host.querySelectorAll("#cl-columns-grid .template-opt").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      renderClPreview(); clAutosaveDebounced();
+    });
+  });
+  host.querySelector("#cl-d-pagesize").addEventListener("change", (e)=>{
+    clState.design.pageSize = e.target.value;
+    renderClPreview(); clAutosaveDebounced();
+  });
+}
+
+// ---- 20e. Live preview -------------------------------------------------------
+function clFmtDate(iso){
+  if(!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  if(isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" });
+}
+function renderClPreview(){
+  const page = document.getElementById("cl-page");
+  const hasAnything = clState.fullName || clState.opening || clState.body || clState.closing;
+  if(!hasAnything){
+    page.innerHTML = `<div class="cl-empty-hint"><i class="fa-regular fa-file-lines"></i><p><b>Your cover letter preview will appear here</b><br>Start with your details on the left.</p></div>`;
+    return;
+  }
+
+  const d = clState.design;
+  page.dataset.columns = d.columns;
+  page.dataset.pageSize = d.pageSize;
+  page.style.setProperty("--cl-primary", d.primary);
+  page.style.setProperty("--cl-accent", d.accent);
+
+  const contactBits = [clState.email, clState.phone, clState.location].filter(Boolean).map(escapeHtml).join(" &middot; ");
+  const greeting = clState.greeting || `Dear ${clState.recipientName ? escapeHtml(clState.recipientName) : "Hiring Manager"},`;
+  const recipientLines = [
+    clState.recipientName ? `<b>${escapeHtml(clState.recipientName)}</b>` : "",
+    clState.recipientTitle,
+    clState.companyName,
+    clState.companyAddress,
+  ].filter(Boolean).map(escapeHtml).join("<br>");
+
+  const sidebarHtml = `
+    <div class="cl-name">${escapeHtml(clState.fullName)||"Your Name"}</div>
+    <div class="cl-contact">${[clState.email,clState.phone,clState.location].filter(Boolean).map(escapeHtml).join("<br>")}</div>
+    <div class="cl-date">${clFmtDate(clState.date)}</div>
+  `;
+  const bodyHtml = `
+    <div class="cl-accent-rule"></div>
+    ${recipientLines ? `<div class="cl-recipient">${recipientLines}</div>` : ""}
+    <div class="cl-greeting">${greeting}</div>
+    <div class="cl-body">
+      ${clState.opening ? `<p>${nl2br(clState.opening)}</p>` : ""}
+      ${clState.body ? `<p>${nl2br(clState.body)}</p>` : ""}
+      ${clState.closing ? `<p>${nl2br(clState.closing)}</p>` : ""}
+    </div>
+    <div class="cl-signoff">
+      <div>${escapeHtml(clState.signOff || "Sincerely,")}</div>
+      <div class="cl-name">${escapeHtml(clState.fullName)||"Your Name"}</div>
+    </div>
+  `;
+
+  if(d.columns === 2){
+    page.innerHTML = `<div class="cl-sidebar">${sidebarHtml}</div><div class="cl-main">${bodyHtml}</div>`;
+  } else {
+    page.innerHTML = `
+      <div class="cl-header">
+        <div class="cl-name">${escapeHtml(clState.fullName)||"Your Name"}</div>
+        ${clState.title ? `<div style="color:var(--cl-accent);font-weight:600;font-size:13px;">${escapeHtml(clState.title)}</div>` : ""}
+        ${contactBits ? `<div class="cl-contact" style="margin-top:4px;">${contactBits}</div>` : ""}
+      </div>
+      <div class="cl-date">${clFmtDate(clState.date)}</div>
+      ${bodyHtml}
+    `;
+  }
+
+  const brand = document.createElement("div");
+  brand.className = "cl-footer-brand";
+  brand.textContent = "Made with Printkay's Tech CV Maker";
+  page.appendChild(brand);
+}
+
+// ---- 20f. Validation ----------------------------------------------------------
+function runClValidationAndMaybeToast(){
+  const errors = [];
+  if(!clState.fullName.trim()) errors.push("Full name is required.");
+  if(!clState.email.trim()) errors.push("Email address is required.");
+  else if(!isEmailValid(clState.email)) errors.push("Email address looks invalid.");
+  if(!clState.phone.trim()) errors.push("Phone number is required.");
+  else if(!isPhoneValid(clState.phone)) errors.push("Phone number looks invalid.");
+
+  const errBox = document.getElementById("cl-error-summary");
+  const errList = document.getElementById("cl-error-summary-list");
+  if(errors.length){
+    errBox.classList.add("show");
+    errList.innerHTML = errors.map(e=>`<li>${e}</li>`).join("");
+    errBox.scrollIntoView({behavior:"smooth", block:"center"});
+    return false;
+  }
+  errBox.classList.remove("show");
+  return true;
+}
+
+// ---- 20g. Draft save / clear --------------------------------------------------
+let clAutosaveTimer = null;
+function clAutosaveDebounced(){
+  clearTimeout(clAutosaveTimer);
+  clAutosaveTimer = setTimeout(()=>saveClDraft(false), 700);
+}
+function saveClDraft(showToast){
+  try{
+    localStorage.setItem(CL_DRAFT_KEY, JSON.stringify(clState));
+    if(showToast) toast("Cover letter draft saved to this device.","success");
+  }catch(e){
+    if(showToast) toast("Could not save draft — your browser storage may be full.","error");
+  }
+}
+document.getElementById("cl-save-draft").addEventListener("click", ()=>saveClDraft(true));
+document.getElementById("cl-clear-form").addEventListener("click", async ()=>{
+  const ok = await confirmDialog("Clear the entire cover letter?","This removes all information you've entered. This cannot be undone.");
+  if(!ok) return;
+  clState = emptyClState();
+  localStorage.removeItem(CL_DRAFT_KEY);
+  renderClForm(); renderClPreview();
+  toast("Cover letter cleared.","success");
 });
+
+// ---- 20h. Open / close navigation ----------------------------------------------
+// prefillFromCv: when opening from the CV builder's "Generate Cover Letter"
+// banner, copy over name/email/phone/location so nothing has to be retyped —
+// only fills fields that are still empty, so it never overwrites an
+// in-progress cover letter draft.
+function openCoverLetterApp(prefillFromCv){
+  const draft = localStorage.getItem(CL_DRAFT_KEY);
+  if(draft){
+    try{ clState = JSON.parse(draft); }catch(e){ clState = emptyClState(); }
+  }
+  if(prefillFromCv && typeof state !== "undefined" && state.personalInfo){
+    const p = state.personalInfo;
+    if(!clState.fullName && p.fullName) clState.fullName = p.fullName;
+    if(!clState.title && p.professionalTitle) clState.title = p.professionalTitle;
+    if(!clState.email && p.email) clState.email = p.email;
+    if(!clState.phone && p.phone) clState.phone = p.phone;
+    if(!clState.location && p.location) clState.location = p.location;
+  }
+  document.getElementById("landing-root").classList.add("hidden");
+  document.getElementById("builder-app").classList.remove("active");
+  document.getElementById("coverletter-app").classList.add("active");
+  renderClForm();
+  renderClPreview();
+  if(typeof updateWhatsappHelpLink === "function") updateWhatsappHelpLink();
+  if(typeof setWhatsappFabVisible === "function") setWhatsappFabVisible(false);
+  window.scrollTo(0,0);
+}
+document.getElementById("btn-open-coverletter").addEventListener("click", ()=> openCoverLetterApp(false));
+document.getElementById("btn-cover-promo").addEventListener("click", ()=> openCoverLetterApp(true));
+document.getElementById("cl-back").addEventListener("click", async ()=>{
+  const ok = await confirmDialog("Leave the Cover Letter builder?","Your progress is auto-saved as a draft, so it'll be here when you return.");
+  if(!ok) return;
+  saveClDraft(false);
+  document.getElementById("coverletter-app").classList.remove("active");
+  document.getElementById("landing-root").classList.remove("hidden");
+  if(typeof updateWhatsappHelpLink === "function") updateWhatsappHelpLink();
+  if(typeof setWhatsappFabVisible === "function") setWhatsappFabVisible(true);
+  window.scrollTo(0,0);
+});
+document.getElementById("cl-theme-toggle").addEventListener("click", toggleTheme);
+
+// ---- 20i. Download format switch (PDF vs DOCX) — mirrors the CV builder's --
+let clDownloadFormat = "pdf";
+function setClDownloadFormat(fmt){
+  clDownloadFormat = fmt;
+  document.querySelectorAll("#cl-format-toggle .format-toggle-btn").forEach(b=>b.classList.toggle("active", b.dataset.format===fmt));
+  const label = fmt==="docx" ? "Download Word (.docx)" : "Print / Save as PDF";
+  const labelM = fmt==="docx" ? "Word" : "Print";
+  const iconClass = fmt==="docx" ? "fa-file-word" : "fa-print";
+  document.getElementById("cl-download-label").textContent = label;
+  document.getElementById("cl-download-label-m").textContent = labelM;
+  document.getElementById("cl-download-icon").className = "fa-solid " + iconClass;
+  document.getElementById("cl-download-icon-m").className = "fa-solid " + iconClass;
+}
+document.querySelectorAll("#cl-format-toggle .format-toggle-btn").forEach(b=>{
+  b.addEventListener("click", ()=> setClDownloadFormat(b.dataset.format));
+});
+function runClDownload(){
+  if(clDownloadFormat==="docx") generateClDocx(); else openClPrintDialog();
+}
+document.getElementById("cl-download-btn").addEventListener("click", runClDownload);
+document.getElementById("cl-download-m").addEventListener("click", runClDownload);
+
+async function openClPrintDialog(){
+  if(!runClValidationAndMaybeToast()){
+    toast("Please complete the required fields before printing or saving.","error");
+    return;
+  }
+  await openPrintDialog("coverletter", clState.design.pageSize, ["Preparing your letter","Formatting for print","Opening print dialog"]);
+  saveClDraft(false);
+}
+
+// ---- 20j. DOCX export — a plain, paragraph-only document (reuses docxPara) ----
+function buildClDocxHtml(){
+  const greeting = clState.greeting || `Dear ${clState.recipientName || "Hiring Manager"},`;
+  let body = `<p style="font-family:Calibri,Arial,sans-serif;font-size:16pt;font-weight:bold;color:#123B6D;margin:0 0 2pt;">${escapeHtml(clState.fullName)||"Your Name"}</p>`;
+  const contactBits = [clState.email, clState.phone, clState.location].filter(Boolean).map(escapeHtml).join(" | ");
+  if(contactBits) body += docxPara(contactBits);
+  body += docxPara(clFmtDate(clState.date));
+  const recipientLines = [clState.recipientName, clState.recipientTitle, clState.companyName, clState.companyAddress].filter(Boolean).map(escapeHtml);
+  if(recipientLines.length) body += docxPara(recipientLines.join("<br>"));
+  body += `<p style="font-family:Calibri,Arial,sans-serif;font-size:11pt;font-weight:bold;margin:14pt 0 8pt;">${escapeHtml(greeting)}</p>`;
+  [clState.opening, clState.body, clState.closing].filter(Boolean).forEach(p=>{
+    body += docxPara(nl2br(p).replace(/\n/g,"<br>"));
+  });
+  body += docxPara(escapeHtml(clState.signOff || "Sincerely,"));
+  body += `<p style="font-family:Calibri,Arial,sans-serif;font-size:11pt;font-weight:bold;margin-top:22pt;">${escapeHtml(clState.fullName)||"Your Name"}</p>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${escapeHtml(clState.fullName||'Cover Letter')}</title></head><body>${body}</body></html>`;
+}
+async function generateClDocx(){
+  if(!runClValidationAndMaybeToast()){
+    toast("Please complete the required fields before downloading.","error");
+    return;
+  }
+  const hideLoading = showBrandedLoading(["Preparing your letter","Formatting for Word","Almost ready"]);
+  try{
+    await withMinimumLoadingTime(new Promise(resolve=>setTimeout(resolve, 10)), 2200);
+    const htmlString = buildClDocxHtml();
+    const blob = window.htmlDocx.asBlob(htmlString);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = sanitizeFilename(clState.fullName) + "-Cover-Letter.docx";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    hideLoading();
+    toast("Your cover letter Word document was downloaded successfully.","success");
+    saveClDraft(false);
+  }catch(err){
+    hideLoading();
+    toast("Something went wrong generating your Word document. Please try again.","error");
+    console.error(err);
+  }
+}
 
 /* ============================================================================
    21. WHATSAPP HELP BUTTON
@@ -1671,13 +2149,56 @@ function setWhatsappFabVisible(visible){
   if(fab) fab.style.display = visible ? "" : "none";
 }
 
+/* ============================================================================
+   SECTION: FEEDBACK FORM
+   ----------------------------------------------------------------------------
+   No backend exists, so "submitting" builds a mailto: link from the three
+   fields and opens the person's own email app with it prefilled — same
+   honest, no-server approach as the rest of the app. Nothing here is stored
+   or sent anywhere by this page itself.
+   ============================================================================ */
+document.getElementById("feedback-form").addEventListener("submit", (e)=>{
+  e.preventDefault();
+  const emailEl = document.getElementById("fb-email");
+  const challengesEl = document.getElementById("fb-challenges");
+  const upgradeEl = document.getElementById("fb-upgrade");
+  const challengesWrap = challengesEl.closest("[data-field-wrap]") || challengesEl.closest(".field");
+
+  const challenges = challengesEl.value.trim();
+  if(!challenges){
+    if(challengesWrap) challengesWrap.classList.add("invalid");
+    challengesEl.focus();
+    toast("Please share at least a line or two before sending.","error");
+    return;
+  }
+  if(challengesWrap) challengesWrap.classList.remove("invalid");
+
+  const replyEmail = emailEl.value.trim();
+  const upgrade = upgradeEl.value.trim();
+  const bodyLines = [
+    "Feedback from Printkay's Tech CV Maker",
+    "",
+    "What challenges did you run into?",
+    challenges,
+  ];
+  if(upgrade){ bodyLines.push("", "What would you like us to upgrade or add?", upgrade); }
+  if(replyEmail){ bodyLines.push("", "Reply to: " + replyEmail); }
+
+  const mailtoUrl = `mailto:calebanthony790@gmail.com?subject=${encodeURIComponent("Printkay's Tech CV Maker — Feedback")}&body=${encodeURIComponent(bodyLines.join("\n"))}`;
+  window.location.href = mailtoUrl;
+  toast("Opening your email app with your feedback filled in…","success");
+});
+
 /* ---------------------------------------------------------
    22. INIT
    --------------------------------------------------------- */
 initWatermarkBackground();
 setDownloadFormat("pdf");
+setClDownloadFormat("pdf");
 renderLanding();
 updateWhatsappHelpLink();
+if(typeof cvZoom !== "undefined") cvZoom.initResizeObserver();
+if(typeof clZoom !== "undefined") clZoom.initResizeObserver();
 setTimeout(hidePageLoader, 1600);
 
 })();
