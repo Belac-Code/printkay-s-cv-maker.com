@@ -792,7 +792,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
   .container{padding:0 14px;}
   .brand small{display:none;}
   .brand{font-size:16px;gap:8px;}
-  .brand-mark{width:32px;height:32px;font-size:13px;border-radius:9px;}
+  .brand-mark{ padding:8px; width:32px;height:32px;font-size:13px;border-radius:9px;}
   .theme-toggle{width:36px;height:36px;}
   .hero h1{font-size:28px;}
   .hero p.lead{font-size:15.5px;}
