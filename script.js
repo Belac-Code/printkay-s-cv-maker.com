@@ -509,7 +509,7 @@ function renderPersonalInfoForm(host){
   const p = state.personalInfo;
   host.innerHTML = `
     <div class="field-card">
-      <div class="field full" style="flex-direction:row;align-items:center;gap:16px;">
+      <div class="field full" style="flex-direction:row;align-items:center;gap:16px;flex-wrap:wrap;">
         <div id="photo-preview" style="width:64px;height:64px;border-radius:50%;background:var(--surface-2);border:1.5px dashed var(--border);
           display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;color:var(--text-faint);">
           ${p.photo ? `<img src="${p.photo}" style="width:100%;height:100%;object-fit:cover;">` : '<i class="fa-solid fa-user"></i>'}
