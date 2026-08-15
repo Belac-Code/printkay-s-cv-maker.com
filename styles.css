@@ -106,7 +106,7 @@ p{margin:0;}
   min-width:0;flex:1 1 auto;}
 [data-theme="dark"] .brand{color:#F3F6FA;}
 .brand-mark{ padding:8px; width:38px;height:38px;border-radius:11px;background:linear-gradient(155deg,var(--navy-2),var(--blue));
-  display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-display);font-weight:800;font-size:15px;flex:none;box-shadow:var(--shadow-sm);}
+  display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-display);font-weight:800;font-size:13px;flex:none;box-shadow:var(--shadow-sm);}
 /* Fix for "the name comes out of the header": the wordmark span had no
    white-space control, so at narrow widths the browser wrapped "Printkay's
    Tech" onto a second line instead of shrinking — and since .site-header has
