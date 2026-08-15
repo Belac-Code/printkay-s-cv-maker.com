@@ -71,14 +71,20 @@
     <div class="container">
       <a href="#top" class="brand">
         <span class="brand-mark">PK</span>
-        <span>Printkay's Tech</span>
+        <span>Printkay's Tech<small>CV Maker · by Printkay's Digital Enterprise</small></span>
       </a>
       <nav class="main-nav" id="main-nav" aria-label="Primary">
         <a href="#top">Home</a>
         <a href="#features">Features</a>
         <a href="#how">How It Works</a>
-        <a href="#levels">About</a>
+        <a href="#about">About</a>
         <a href="#contact">Contact</a>
+        <!-- Only rendered visible inside the mobile drawer (CSS) — on desktop
+             the real "Create My CV" button already sits in the header, so
+             this stays hidden there to avoid a duplicate. -->
+        <a href="#levels" class="nav-cta-mobile" onclick="scrollToLevels();return false;">
+          <i class="fa-solid fa-file-pen"></i> Create My CV
+        </a>
       </nav>
       <div class="header-actions">
         <button class="theme-toggle" id="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark / light mode">
@@ -165,6 +171,32 @@
       </div>
     </section>
 
+    <!-- ============================================================
+         COVER LETTER — marketing section on the landing page. The
+         actual builder lives in #coverletter-app (end of body) and
+         reuses the CV builder's existing CSS classes (.builder-header,
+         .builder-layout, .field, .btn, etc.) instead of duplicating
+         them — see "SECTION: COVER LETTER BUILDER" in script.js.
+         ============================================================ -->
+    <section class="section section-alt" id="coverletter-promo">
+      <div class="container cl-promo-row">
+        <div class="cl-promo-copy">
+          <span class="eyebrow">Now available</span>
+          <h2>Pair it with a matching Cover Letter</h2>
+          <p>Same colours, same details, no retyping. Choose a one-column or two-column layout, pick your own colours, preview it live, and download as PDF or Word.</p>
+          <button class="btn btn-primary" id="btn-open-coverletter"><i class="fa-solid fa-envelope-open-text"></i> Create Cover Letter</button>
+        </div>
+        <div class="cl-promo-mock" aria-hidden="true">
+          <div class="cl-promo-mock-bar"></div>
+          <div class="cl-promo-mock-line" style="width:60%"></div>
+          <div class="cl-promo-mock-line" style="width:40%"></div>
+          <div class="cl-promo-mock-para"></div>
+          <div class="cl-promo-mock-para"></div>
+          <div class="cl-promo-mock-para" style="width:70%"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- HOW IT WORKS -->
     <section class="section" id="how">
       <div class="container">
@@ -177,7 +209,69 @@
       </div>
     </section>
 
-    <!-- ABOUT / CONTACT band -->
+    <!-- ============================================================
+         ABOUT US — static content, written from what Printkay's
+         Digital Enterprise told us directly. No live "fetching" from
+         Google or anywhere else happens here — a static page can't
+         safely call external search APIs at runtime (CORS blocks it,
+         and there's no backend to proxy through), so this is the
+         honest alternative: real copy, checked in once, not faked.
+         ============================================================ -->
+    <section class="section" id="about">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow">About Us</span>
+          <h2>P.KAY Digital Enterprise</h2>
+          <p>Founded and led by Caleb Anthony (<em>PrintKayLeb</em>), P.KAY Digital Enterprise is a multi-sector digital brand delivering web engineering, scalable infrastructure, and academic support — bridging technical execution with real-world accessibility for individuals, businesses, and institutions.</p>
+        </div>
+
+        <div class="feature-grid" style="margin-bottom:52px;">
+          <div class="feature-card">
+            <div class="feature-icon"><i class="fa-solid fa-code"></i></div>
+            <h3>PrintKay's Tech</h3>
+            <p>Full-stack engineering and technical education — custom web apps, modern-stack development (React, Node.js, Express, Tailwind), and structured developer tutorials.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+            <h3>KB's Jamb Services</h3>
+            <p>Institutional guidance and assessment technology — interactive CBT exam engines, admissions consulting, and curated student resource hubs.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon"><i class="fa-solid fa-people-group"></i></div>
+            <h3>CampusLink</h3>
+            <p>Strategic educational and campus partnerships — helping student-led startups and campus businesses deploy modern web and payment platforms.</p>
+          </div>
+        </div>
+
+        <div class="cl-promo-row" style="align-items:flex-start;">
+          <div>
+            <h3 style="font-size:19px;margin-bottom:14px;">Why choose P.KAY Digital Enterprise?</h3>
+            <ul class="level-list">
+              <li><i class="fa-solid fa-check"></i>End-to-end execution, from wireframes to cloud deployment</li>
+              <li><i class="fa-solid fa-check"></i>Cross-disciplinary expertise — technical rigour meets real user needs</li>
+              <li><i class="fa-solid fa-check"></i>A proven track record of deployed, actively-used platforms</li>
+              <li><i class="fa-solid fa-check"></i>A community-centric approach — we train and empower, not just build</li>
+            </ul>
+          </div>
+          <div>
+            <h3 style="font-size:19px;margin-bottom:14px;">Featured projects</h3>
+            <ul class="level-list">
+              <li><i class="fa-solid fa-diagram-project"></i>CodeForge Academy — a frontend learning platform</li>
+              <li><i class="fa-solid fa-diagram-project"></i>NexusConvert — a multi-utility file conversion workspace</li>
+              <li><i class="fa-solid fa-diagram-project"></i>ForexEdge Pro — a trading-technology landing page</li>
+              <li><i class="fa-solid fa-diagram-project"></i>P.KAY Enterprise Hub — our unified digital home</li>
+            </ul>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:36px;">
+          <a href="https://p-kaycom.vercel.app" target="_blank" rel="noopener" class="btn btn-outline"><i class="fa-solid fa-globe"></i> Visit p-kaycom.vercel.app</a>
+          <a href="https://share.google/rFkUjwgO5nAJ8h3Rs" target="_blank" rel="noopener" class="btn btn-outline"><i class="fa-brands fa-google"></i> Find us on Google</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT band -->
     <section class="section section-alt" id="contact">
       <div class="container" style="display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;">
         <div style="max-width:520px;">
@@ -190,6 +284,43 @@
           <a href="https://wa.me/2349020730693" target="_blank" rel="noopener" class="btn btn-gold"><i class="fa-brands fa-whatsapp"></i> Chat on WhatsApp</a>
           <a href="https://share.google/rFkUjwgO5nAJ8h3Rs" target="_blank" rel="noopener" class="btn btn-outline"><i class="fa-brands fa-google"></i> View us on Google</a>
         </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         FEEDBACK SECTION — no backend exists, so "submitting" opens the
+         person's own email app with a prefilled message (mailto:), same
+         honest, no-server approach as the rest of the app. See JS
+         "SECTION: FEEDBACK FORM" for how the fields are assembled.
+         ============================================================ -->
+    <section class="section" id="feedback">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow">Help us improve</span>
+          <h2>Tell us what's difficult</h2>
+          <p>Ran into a snag, or wish something worked differently? A couple of lines helps us prioritise what to fix or build next.</p>
+        </div>
+        <form class="feedback-card" id="feedback-form" novalidate>
+          <div class="field-grid">
+            <div class="field full">
+              <label for="fb-email">Your Email <span class="opt">optional — only if you'd like a reply</span></label>
+              <input type="email" id="fb-email" placeholder="e.g. you@example.com">
+            </div>
+            <div class="field full">
+              <label for="fb-challenges">What challenges did you run into? <span class="req">*</span></label>
+              <textarea id="fb-challenges" placeholder="Tell us what you found difficult or confusing while building your CV…" required></textarea>
+              <div class="err-msg" id="fb-challenges-err"><i class="fa-solid fa-circle-exclamation"></i> Please share at least a line or two.</div>
+            </div>
+            <div class="field full">
+              <label for="fb-upgrade">What would you like us to upgrade or add? <span class="opt">optional</span></label>
+              <textarea id="fb-upgrade" placeholder="Features, templates, fixes — anything you'd want to see next…"></textarea>
+            </div>
+          </div>
+          <div class="feedback-actions">
+            <button type="submit" class="btn btn-primary" id="fb-submit"><i class="fa-solid fa-paper-plane"></i> Send Feedback</button>
+            <span class="feedback-note">Opens your email app with this filled in — nothing is stored or sent from here.</span>
+          </div>
+        </form>
       </div>
     </section>
   </main>
@@ -208,7 +339,7 @@
           </div>
         </div>
         <div><h5>Product</h5><a href="#features">Features</a><a href="#levels">CV Levels</a><a href="#how">How It Works</a></div>
-        <div><h5>Company</h5><a href="#contact">About</a><a href="#contact">Contact</a><a href="https://share.google/rFkUjwgO5nAJ8h3Rs" target="_blank" rel="noopener">Find us on Google</a></div>
+        <div><h5>Company</h5><a href="#about">About</a><a href="#contact">Contact</a><a href="#feedback">Feedback</a><a href="https://share.google/rFkUjwgO5nAJ8h3Rs" target="_blank" rel="noopener">Find us on Google</a></div>
         <div><h5>Legal</h5><a href="#">Privacy Policy</a><a href="#">Terms of Service</a><a href="mailto:calebanthony790@gmail.com">calebanthony790@gmail.com</a></div>
       </div>
       <div class="footer-bottom">
@@ -249,9 +380,10 @@
   </div>
 
   <!-- ============================================================
-       COVER LETTER PROMO — ad-style banner, "Coming Soon". Clicking
-       it (or the matching landing-page feature card) opens an info
-       modal; see "SECTION: COVER LETTER PROMO" in the script.
+       COVER LETTER CROSS-LINK — jumps into the real Cover Letter
+       builder (#coverletter-app), prefilling name/email/phone/location
+       from this CV's Personal Information. See "SECTION: COVER LETTER
+       BUILDER" in script.js for openCoverLetterFromCv().
        ============================================================ -->
   <div class="cover-promo" id="cover-promo">
     <span class="cover-promo-badge">NEW</span>
@@ -302,11 +434,72 @@
     <button class="btn btn-primary" id="btn-next-m">Next <i class="fa-solid fa-arrow-right"></i></button>
   </div>
 </div>
-  <!-- Vercel Speed Insights -->
+
+<!-- ============================================================
+     COVER LETTER APP — a second, independent "app view" alongside
+     #builder-app. Deliberately reuses the CV builder's existing CSS
+     classes (.builder-header, .builder-layout, .field, .btn,
+     .preview-toolbar, .format-toggle, .mobile-bottom-nav, etc.)
+     instead of duplicating styles — only the letter-page look
+     (#cl-page) and the promo mockup are new CSS. See "SECTION: COVER
+     LETTER BUILDER" in script.js for all of this view's logic.
+     ============================================================ -->
+<div id="coverletter-app">
+  <div class="builder-header">
+    <div class="builder-header-top">
+      <div class="builder-header-left">
+        <button class="icon-btn" id="cl-back" title="Back to home" aria-label="Back to home"><i class="fa-solid fa-arrow-left"></i></button>
+        <div class="builder-title">
+          <b>Cover Letter</b>
+          <span>Printkay's Tech</span>
+        </div>
+      </div>
+      <div class="builder-header-actions">
+        <button class="btn btn-ghost btn-sm" id="cl-save-draft" aria-label="Save draft" title="Save draft"><i class="fa-solid fa-floppy-disk"></i> <span class="btn-text">Save Draft</span></button>
+        <button class="btn btn-ghost btn-sm" id="cl-clear-form" aria-label="Clear form" title="Clear form"><i class="fa-solid fa-eraser"></i> <span class="btn-text">Clear Form</span></button>
+        <button class="theme-toggle" id="cl-theme-toggle" aria-label="Toggle dark mode"><i class="fa-solid fa-moon" id="cl-theme-icon"></i></button>
+        <button class="btn btn-primary btn-sm" id="cl-download-btn"><i class="fa-solid fa-print" id="cl-download-icon"></i> <span id="cl-download-label">Print / Save as PDF</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div class="builder-layout">
+    <div class="form-pane" id="cl-form-pane">
+      <div class="error-summary" id="cl-error-summary">
+        <h4><i class="fa-solid fa-triangle-exclamation"></i> Please fix the following before downloading</h4>
+        <ul id="cl-error-summary-list"></ul>
+      </div>
+      <div id="cl-form-sections"></div>
+    </div>
+    <div class="preview-pane">
+      <div class="preview-toolbar">
+        <div class="zoom-controls">
+          <button class="icon-btn" id="cl-zoom-out" title="Zoom out" aria-label="Zoom out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+          <span id="cl-zoom-level">70%</span>
+          <button class="icon-btn" id="cl-zoom-in" title="Zoom in" aria-label="Zoom in"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+          <button class="icon-btn" id="cl-zoom-fit" title="Fit to screen" aria-label="Fit to screen"><i class="fa-solid fa-expand"></i></button>
+        </div>
+        <div class="format-toggle" id="cl-format-toggle" role="group" aria-label="Choose download format">
+          <button type="button" class="format-toggle-btn active" data-format="pdf"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+          <button type="button" class="format-toggle-btn" data-format="docx"><i class="fa-solid fa-file-word"></i> DOCX</button>
+        </div>
+      </div>
+      <div class="preview-scroll" id="cl-preview-scroll">
+        <div id="cl-preview-wrap"><div id="cl-page" data-columns="1" data-page-size="a4"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mobile-bottom-nav">
+    <button class="btn btn-ghost" id="cl-preview-m"><i class="fa-solid fa-eye"></i> Preview</button>
+    <button class="btn btn-primary" id="cl-download-m"><i class="fa-solid fa-print" id="cl-download-icon-m"></i> <span id="cl-download-label-m">Print</span></button>
+  </div>
+</div>
+
+<!-- Vercel Speed Insights -->
      <script defer src="/_vercel/insights/script.js"></script>
   <script defer src="/_vercel/speed-insights/script.js"></script>
+
 <script src="script.js"></script>
 </body>
 </html>
-
- 
